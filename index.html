@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Music Player</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            font-family: sans-serif;
+        }
+
+        /* The hidden YouTube Player */
+        #player {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0; 
+            pointer-events: none;
+        }
+
+        /* The Thumbnail Layer */
+        #thumbnail {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Gradient overlay to make buttons readable */
+        .gradient-overlay {
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%; height: 40%;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Controls Container */
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 10;
+            opacity: 0.6; /* Semi-transparent by default */
+            transition: opacity 0.3s;
+        }
+
+        /* Show full opacity on hover */
+        .controls:hover {
+            opacity: 1;
+        }
+
+        /* Button Styles */
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            color: white;
+            transition: transform 0.1s;
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
+        }
+
+        button:active {
+            transform: scale(0.9);
+        }
+
+        button svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+
+        #btn-play svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        /* Status Text */
+        #status {
+            position: absolute;
+            top: 10px; left: 10px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 4px;
+            z-index: 20;
+            font-size: 12px;
+            pointer-events: none;
+            display: none; /* Hidden by default unless error */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status">Initializing...</div>
+    
+    <div id="thumbnail"></div>
+    <div class="gradient-overlay"></div>
+    
+    <!-- Hidden Player -->
+    <div id="player"></div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="btn-prev" onclick="prevTrack()" title="Previous">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        
+        <button id="btn-play" onclick="togglePlay()" title="Play/Pause">
+            <!-- Default to Pause Icon since it autopilots -->
+            <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        
+        <button id="btn-next" onclick="nextTrack()" title="Next">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const urlParams = new URLSearchParams(window.location.search);
+        // Default to NCS playlist if none provided
+        const playlistId = urlParams.get('list') || 'PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph'; 
+        const volume = parseInt(urlParams.get('vol')) || 30;
+
+        // --- 2. YOUTUBE API SETUP ---
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+        var isPlaying = false;
+
+        function onYouTubeIframeAPIReady() {
+            showStatus("Loading Playlist...");
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                playerVars: {
+                    'listType': 'playlist',
+                    'list': playlistId,
+                    'autoplay': 1,
+                    'controls': 0,
+                    'loop': 1,
+                    'playsinline': 1,
+                    'origin': window.location.origin
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            showStatus("Starting...");
+            event.target.setVolume(volume);
+            event.target.playVideo();
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.PLAYING) {
+                isPlaying = true;
+                updatePlayButton();
+                updateThumbnail();
+                hideStatus();
+            } 
+            else if (event.data === YT.PlayerState.PAUSED) {
+                isPlaying = false;
+                updatePlayButton();
+            }
+            else if (event.data === YT.PlayerState.ENDED) {
+                player.playVideo(); // Force loop if needed
+            }
+        }
+
+        function onPlayerError(event) {
+            let msg = "Error " + event.data;
+            if (event.data === 150 || event.data === 101) msg = "Video owner blocked embedding.";
+            showStatus(msg);
+        }
+
+        // --- 3. CONTROLS LOGIC ---
+        function togglePlay() {
+            if (!player) return;
+            if (isPlaying) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
+            }
+        }
+
+        function nextTrack() {
+            if (player) player.nextVideo();
+        }
+
+        function prevTrack() {
+            if (player) player.previousVideo();
+        }
+
+        // --- 4. UI UPDATES ---
+        function updatePlayButton() {
+            const iconPause = document.getElementById('icon-pause');
+            const iconPlay = document.getElementById('icon-play');
+            
+            if (isPlaying) {
+                iconPause.style.display = 'block';
+                iconPlay.style.display = 'none';
+            } else {
+                iconPause.style.display = 'none';
+                iconPlay.style.display = 'block';
+            }
+        }
+
+        function updateThumbnail() {
+            try {
+                let videoData = player.getVideoData();
+                if (videoData && videoData.video_id) {
+                    // Try high res first
+                    let thumbUrl = `https://img.youtube.com/vi/${videoData.video_id}/maxresdefault.jpg`;
+                    
+                    // Note: If maxres doesn't exist, we rely on CSS background behavior or generic fetch
+                    // For robustness in this simple script, we stick to maxres or hqdefault
+                    // You can change to hqdefault.jpg if maxres is often missing for your specific songs
+                    document.getElementById('thumbnail').style.backgroundImage = `url('${thumbUrl}')`;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function showStatus(msg) {
+            const el = document.getElementById('status');
+            el.innerText = msg;
+            el.style.display = 'block';
+        }
+
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
