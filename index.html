@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OBS Music Player</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body, html {
             margin: 0;
@@ -11,140 +12,212 @@
             overflow: hidden;
             width: 100%;
             height: 100%;
-            background-color: #000;
-            font-family: sans-serif;
+            background-color: #121212;
+            font-family: 'Roboto', sans-serif;
         }
 
         /* The hidden YouTube Player */
         #player {
             position: absolute;
             top: 0; left: 0;
-            width: 100%; height: 100%;
+            width: 1px; height: 1px;
             opacity: 0; 
             pointer-events: none;
         }
 
-        /* The Thumbnail Layer */
-        #thumbnail {
+        /* 1. Background Layer (Blurred Art) */
+        #bg-layer {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: -10%; left: -10%;
+            width: 120%; height: 120%;
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
+            filter: blur(20px) brightness(0.4);
             z-index: 1;
-            transition: opacity 0.5s ease;
+            transition: background-image 0.8s ease;
         }
 
-        /* Gradient overlay to make buttons readable */
-        .gradient-overlay {
-            position: absolute;
-            bottom: 0; left: 0;
-            width: 100%; height: 40%;
-            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Controls Container */
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
+        /* 2. Main Content Container */
+        .widget-container {
+            position: relative;
             z-index: 10;
-            opacity: 0.6; /* Semi-transparent by default */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Align to bottom */
+            padding: 20px;
+            box-sizing: border-box;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+        }
+
+        /* 3. Album Art (Small Square) */
+        .art-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background-color: #333;
+            /* Hidden on very small heights, visible otherwise */
+            display: none; 
+        }
+        
+        /* Only show small art if the widget is tall enough */
+        @media (min-height: 200px) {
+            .art-container { display: block; }
+        }
+
+        #small-art {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 4. Text Info Area */
+        .info-area {
+            margin-bottom: 20px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* Scrolling Marquee for Title */
+        .track-title-container {
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .track-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            display: inline-block;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            /* Animation applied via JS if text is too long */
+        }
+
+        .channel-name {
+            font-size: 14px;
+            color: #b3b3b3;
+            margin-top: 4px;
+            font-weight: 400;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* 5. Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            opacity: 0.7;
             transition: opacity 0.3s;
         }
 
-        /* Show full opacity on hover */
         .controls:hover {
             opacity: 1;
         }
 
-        /* Button Styles */
         button {
             background: none;
             border: none;
             cursor: pointer;
-            padding: 10px;
+            padding: 5px;
             color: white;
             transition: transform 0.1s;
-            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
+            filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.5));
         }
 
         button:active {
-            transform: scale(0.9);
+            transform: scale(0.95);
         }
 
         button svg {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             fill: white;
         }
 
         #btn-play svg {
-            width: 48px;
-            height: 48px;
+            width: 36px;
+            height: 36px;
         }
 
-        /* Status Text */
+        /* Status Toast */
         #status {
             position: absolute;
-            top: 10px; left: 10px;
-            color: rgba(255,255,255,0.8);
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 10px;
+            top: 20px; right: 20px;
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            padding: 8px 12px;
             border-radius: 4px;
-            z-index: 20;
-            font-size: 14px;
-            pointer-events: none; /* Let clicks pass through unless we need interaction */
-            display: none; /* Hidden by default unless error */
-            max-width: 90%;
+            font-size: 12px;
+            z-index: 100;
+            display: none;
+        }
+
+        /* Marquee Animation Keyframes */
+        @keyframes scroll-text {
+            0% { transform: translateX(0%); }
+            20% { transform: translateX(0%); } /* Pause at start */
+            100% { transform: translateX(-100%); }
         }
     </style>
 </head>
 <body>
 
+    <!-- Blurred Background -->
+    <div id="bg-layer"></div>
+
+    <!-- Status Message -->
     <div id="status">Initializing...</div>
-    
-    <div id="thumbnail"></div>
-    <div class="gradient-overlay"></div>
-    
+
+    <div class="widget-container">
+        
+        <!-- Optional Small Art (Visible if height allows) -->
+        <div class="art-container">
+            <div id="small-art"></div>
+        </div>
+
+        <div class="info-area">
+            <div class="track-title-container" id="title-container">
+                <span id="track-title" class="track-title">Loading...</span>
+            </div>
+            <div id="channel-name" class="channel-name"></div>
+        </div>
+
+        <div class="controls">
+            <button id="btn-prev" onclick="prevTrack()" title="Previous">
+                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
+            
+            <button id="btn-play" onclick="togglePlay()" title="Play/Pause">
+                <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            
+            <button id="btn-next" onclick="nextTrack()" title="Next">
+                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
+        </div>
+    </div>
+
     <!-- Hidden Player -->
     <div id="player"></div>
 
-    <!-- Controls -->
-    <div class="controls">
-        <button id="btn-prev" onclick="prevTrack()" title="Previous">
-            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-        </button>
-        
-        <button id="btn-play" onclick="togglePlay()" title="Play/Pause">
-            <!-- Default to Pause Icon since it autopilots -->
-            <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        
-        <button id="btn-next" onclick="nextTrack()" title="Next">
-            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-        </button>
-    </div>
-
     <script>
-        // --- 1. CONFIGURATION ---
+        // --- CONFIGURATION ---
         const urlParams = new URLSearchParams(window.location.search);
-        // Default to NCS playlist if none provided
         const playlistId = urlParams.get('list') || 'PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph'; 
         const volume = parseInt(urlParams.get('vol')) || 30;
-        // Default to shuffle ON, unless user puts &shuffle=0 in URL
         const shuffle = urlParams.get('shuffle') !== '0';
 
-        // --- 2. YOUTUBE API SETUP ---
+        // --- YOUTUBE API ---
         var tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -155,11 +228,9 @@
 
         function onYouTubeIframeAPIReady() {
             if (window.location.protocol === 'file:') {
-                showStatus("Warning: Running from local file. YouTube API might fail. Use GitHub Pages.");
-            } else {
-                showStatus("Loading Playlist...");
+                showStatus("Warning: Running locally. Use GitHub Pages for best results.");
             }
-
+            
             player = new YT.Player('player', {
                 height: '100%',
                 width: '100%',
@@ -181,10 +252,8 @@
         }
 
         function onPlayerReady(event) {
-            showStatus("Starting...");
             event.target.setVolume(volume);
 
-            // --- SHUFFLE LOGIC ---
             if (shuffle) {
                 event.target.setShuffle(true);
                 event.target.playVideoAt(0);
@@ -192,15 +261,11 @@
                 event.target.playVideo();
             }
 
-            // --- AUTOPLAY FIX ---
-            // If the video hasn't started playing within 3 seconds, 
-            // the browser likely blocked it. We ask for a click.
+            // Autoplay Check
             setTimeout(() => {
                 if (!isPlaying) {
-                    showStatus("Autoplay blocked. Click anywhere to start.");
-                    document.body.addEventListener('click', function() {
-                        player.playVideo();
-                    }, { once: true });
+                    showStatus("Autoplay blocked. Click to start.");
+                    document.body.addEventListener('click', () => player.playVideo(), { once: true });
                 }
             }, 3000);
         }
@@ -208,45 +273,27 @@
         function onPlayerStateChange(event) {
             if (event.data === YT.PlayerState.PLAYING) {
                 isPlaying = true;
-                updatePlayButton();
-                updateThumbnail();
+                updateUI();
                 hideStatus();
             } 
             else if (event.data === YT.PlayerState.PAUSED) {
                 isPlaying = false;
-                updatePlayButton();
+                updateUI();
             }
             else if (event.data === YT.PlayerState.ENDED) {
-                player.playVideo(); // Force loop if needed
+                player.playVideo(); 
             }
         }
 
         function onPlayerError(event) {
             let msg = "Error " + event.data;
-            if (event.data === 150 || event.data === 101) msg = "Video owner blocked embedding.";
+            if (event.data === 150 || event.data === 101) msg = "Video blocked by owner.";
             showStatus(msg);
         }
 
-        // --- 3. CONTROLS LOGIC ---
-        function togglePlay() {
-            if (!player) return;
-            if (isPlaying) {
-                player.pauseVideo();
-            } else {
-                player.playVideo();
-            }
-        }
-
-        function nextTrack() {
-            if (player) player.nextVideo();
-        }
-
-        function prevTrack() {
-            if (player) player.previousVideo();
-        }
-
-        // --- 4. UI UPDATES ---
-        function updatePlayButton() {
+        // --- UI LOGIC ---
+        function updateUI() {
+            // Button State
             const iconPause = document.getElementById('icon-pause');
             const iconPlay = document.getElementById('icon-play');
             
@@ -257,16 +304,59 @@
                 iconPause.style.display = 'none';
                 iconPlay.style.display = 'block';
             }
+
+            // Track Info & Art
+            try {
+                const data = player.getVideoData();
+                if (data) {
+                    // Update Text
+                    const titleEl = document.getElementById('track-title');
+                    titleEl.innerText = data.title;
+                    document.getElementById('channel-name').innerText = data.author;
+
+                    // Marquee Logic
+                    checkMarquee(titleEl);
+
+                    // Update Art
+                    const videoId = data.video_id;
+                    const highResUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                    
+                    document.getElementById('bg-layer').style.backgroundImage = `url('${highResUrl}')`;
+                    document.getElementById('small-art').style.backgroundImage = `url('${highResUrl}')`;
+                }
+            } catch(e) { console.error(e); }
         }
 
-        function updateThumbnail() {
-            try {
-                let videoData = player.getVideoData();
-                if (videoData && videoData.video_id) {
-                    let thumbUrl = `https://img.youtube.com/vi/${videoData.video_id}/maxresdefault.jpg`;
-                    document.getElementById('thumbnail').style.backgroundImage = `url('${thumbUrl}')`;
-                }
-            } catch (e) { console.error(e); }
+        function checkMarquee(element) {
+            // Reset animation
+            element.style.animation = 'none';
+            element.style.transform = 'translateX(0)';
+            
+            const containerWidth = document.getElementById('title-container').offsetWidth;
+            const textWidth = element.scrollWidth;
+
+            if (textWidth > containerWidth) {
+                // Calculate duration based on length
+                const duration = textWidth / 50; // Speed control
+                // Add padding to text for seamless loop look (simulated here by scrolling out)
+                element.style.animation = `scroll-text ${duration}s linear infinite alternate`;
+                // Note: True seamless marquee requires duplicating text DOM. 
+                // This version scrolls left then bounces back or restarts, which is cleaner for simple widgets.
+            }
+        }
+
+        // --- CONTROLS ---
+        function togglePlay() {
+            if (!player) return;
+            isPlaying ? player.pauseVideo() : player.playVideo();
+        }
+
+        function nextTrack() {
+            if (player) player.nextVideo();
+        }
+
+        function prevTrack() {
+            if (player) player.previousVideo();
         }
 
         function showStatus(msg) {
@@ -278,6 +368,11 @@
         function hideStatus() {
             document.getElementById('status').style.display = 'none';
         }
+
+        // Resize listener for marquee
+        window.addEventListener('resize', () => {
+            if(player) updateUI();
+        });
     </script>
 </body>
 </html>
