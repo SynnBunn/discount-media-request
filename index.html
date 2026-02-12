@@ -101,9 +101,10 @@
             padding: 5px 10px;
             border-radius: 4px;
             z-index: 20;
-            font-size: 12px;
-            pointer-events: none;
+            font-size: 14px;
+            pointer-events: none; /* Let clicks pass through unless we need interaction */
             display: none; /* Hidden by default unless error */
+            max-width: 90%;
         }
     </style>
 </head>
@@ -140,6 +141,8 @@
         // Default to NCS playlist if none provided
         const playlistId = urlParams.get('list') || 'PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph'; 
         const volume = parseInt(urlParams.get('vol')) || 30;
+        // Default to shuffle ON, unless user puts &shuffle=0 in URL
+        const shuffle = urlParams.get('shuffle') !== '0';
 
         // --- 2. YOUTUBE API SETUP ---
         var tag = document.createElement('script');
@@ -151,7 +154,12 @@
         var isPlaying = false;
 
         function onYouTubeIframeAPIReady() {
-            showStatus("Loading Playlist...");
+            if (window.location.protocol === 'file:') {
+                showStatus("Warning: Running from local file. YouTube API might fail. Use GitHub Pages.");
+            } else {
+                showStatus("Loading Playlist...");
+            }
+
             player = new YT.Player('player', {
                 height: '100%',
                 width: '100%',
@@ -175,7 +183,26 @@
         function onPlayerReady(event) {
             showStatus("Starting...");
             event.target.setVolume(volume);
-            event.target.playVideo();
+
+            // --- SHUFFLE LOGIC ---
+            if (shuffle) {
+                event.target.setShuffle(true);
+                event.target.playVideoAt(0);
+            } else {
+                event.target.playVideo();
+            }
+
+            // --- AUTOPLAY FIX ---
+            // If the video hasn't started playing within 3 seconds, 
+            // the browser likely blocked it. We ask for a click.
+            setTimeout(() => {
+                if (!isPlaying) {
+                    showStatus("Autoplay blocked. Click anywhere to start.");
+                    document.body.addEventListener('click', function() {
+                        player.playVideo();
+                    }, { once: true });
+                }
+            }, 3000);
         }
 
         function onPlayerStateChange(event) {
@@ -236,12 +263,7 @@
             try {
                 let videoData = player.getVideoData();
                 if (videoData && videoData.video_id) {
-                    // Try high res first
                     let thumbUrl = `https://img.youtube.com/vi/${videoData.video_id}/maxresdefault.jpg`;
-                    
-                    // Note: If maxres doesn't exist, we rely on CSS background behavior or generic fetch
-                    // For robustness in this simple script, we stick to maxres or hqdefault
-                    // You can change to hqdefault.jpg if maxres is often missing for your specific songs
                     document.getElementById('thumbnail').style.backgroundImage = `url('${thumbUrl}')`;
                 }
             } catch (e) { console.error(e); }
