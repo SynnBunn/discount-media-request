@@ -2,7 +2,7 @@
 
 1. **Add to OBS:**  
    * Add a new **Browser Source** in OBS.  
-   * Paste your configured URL * *Example:* https://synnbunn.github.io/discount-media-request/?twitch=synnbunn&list=PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph\&vol=20*.  
+   * Paste your configured URL *Example:* https://synnbunn.github.io/discount-media-request/?twitch=synnbunn&list=PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph\&vol=20.  
    * Set Width to 550 and Height to 150 (or whatever fits your layout).  
    * Check **"Control Audio via OBS"** so you can adjust the volume in your audio mixer.  
 2. **Interact:**  
