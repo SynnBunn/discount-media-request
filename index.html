@@ -419,6 +419,13 @@
 
         // --- TWITCH INTEGRATION & ROBUST EXTRACTION ---
         function initTwitch() {
+            // Safeguard: Check if the tmi.js script has completely loaded
+            if (typeof tmi === 'undefined') {
+                console.warn("[Twitch] tmi.js is not loaded yet. Waiting 500ms to retry...");
+                setTimeout(initTwitch, 500);
+                return;
+            }
+
             console.log(`[Twitch] Attempting to connect to channel: ${twitchChannel}`);
             const client = new tmi.Client({ channels: [ twitchChannel ] });
 
