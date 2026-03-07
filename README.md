@@ -8,7 +8,7 @@
 2. **Interact:**  
    * Right-click the Browser Source in OBS and select **Interact** to click the Play/Pause or Skip buttons directly\!
 
-## ** URL Configuration Parameters**
+## **URL Configuration Parameters**
 
 You customize how the player behaves by adding these parameters to the end of your URL, separated by the & symbol.  
 | **Parameter** | **What it does** | **Example** | **Default** |  
