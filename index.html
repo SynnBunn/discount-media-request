@@ -6,6 +6,23 @@
     <title>OBS Music Player</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* --- CUSTOMIZATION VARIABLES --- 
+           You can override these in OBS's Custom CSS box! */
+        :root {
+            --bg-color: rgba(18, 18, 18, 0.95);
+            --bg-queue: rgba(18, 18, 18, 0.85);
+            --accent-color: #9146FF; /* Twitch Purple */
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --btn-bg: rgba(255, 255, 255, 0.05);
+            --btn-hover: rgba(255, 255, 255, 0.15);
+            --queue-item-bg: rgba(255, 255, 255, 0.05);
+            --icon-color: #ffffff;
+            --success-color: #22c55e;
+            --error-color: #ef4444;
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -43,9 +60,9 @@
             display: flex;
             flex-direction: row;
             align-items: center;
-            background: rgba(18, 18, 18, 0.95);
+            background: var(--bg-color);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 12px;
             width: 100%;
@@ -95,14 +112,14 @@
         .track-title {
             font-size: 20px;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--text-primary);
             display: inline-block;
             text-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
 
         .channel-name {
             font-size: 13px;
-            color: #a0a0a0;
+            color: var(--text-secondary);
             margin-top: 5px;
             font-weight: 400;
         }
@@ -110,8 +127,8 @@
         /* Badge inside info area */
         .source-badge {
             display: inline-block;
-            background: #9146FF;
-            color: white;
+            background: var(--accent-color);
+            color: var(--text-primary);
             font-size: 10px;
             font-weight: bold;
             padding: 2px 6px;
@@ -131,31 +148,31 @@
         }
 
         button {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--btn-bg);
+            border: 1px solid var(--border-color);
             border-radius: 50%;
             cursor: pointer;
             padding: 8px;
-            color: white;
+            color: var(--icon-color);
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        button:hover { background: rgba(255, 255, 255, 0.15); transform: scale(1.05); }
+        button:hover { background: var(--btn-hover); transform: scale(1.05); }
         button:active { transform: scale(0.95); }
-        button svg { width: 20px; height: 20px; fill: white; }
-        #btn-play { padding: 12px; background: rgba(255, 255, 255, 0.1); }
+        button svg { width: 20px; height: 20px; fill: var(--icon-color); }
+        #btn-play { padding: 12px; background: var(--border-color); }
         #btn-play svg { width: 24px; height: 24px; }
 
         /* --- VISUAL QUEUE --- */
         .queue-container {
             width: 95%; /* Slightly narrower than main card */
             margin: 0 auto;
-            background: rgba(18, 18, 18, 0.85);
+            background: var(--bg-queue);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
             border-top: none;
             border-radius: 0 0 12px 12px;
             padding: 15px 12px 12px 12px;
@@ -170,7 +187,7 @@
 
         .queue-header {
             font-size: 11px;
-            color: #a0a0a0;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 700;
@@ -182,7 +199,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: rgba(255,255,255,0.05);
+            background: var(--queue-item-bg);
             padding: 6px 10px;
             border-radius: 8px;
             animation: slideIn 0.3s ease;
@@ -206,7 +223,7 @@
 
         .queue-title {
             font-size: 13px;
-            color: white;
+            color: var(--text-primary);
             text-overflow: ellipsis;
             overflow: hidden;
             font-weight: 700;
@@ -214,7 +231,7 @@
 
         .queue-user {
             font-size: 11px;
-            color: #9146FF;
+            color: var(--accent-color);
             margin-top: 2px;
         }
 
@@ -223,8 +240,8 @@
             position: absolute;
             top: 20px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(220, 38, 38, 0.95);
-            color: white;
+            background: var(--error-color);
+            color: var(--text-primary);
             padding: 6px 16px;
             border-radius: 20px;
             font-size: 12px;
@@ -302,8 +319,9 @@
         const volume = parseInt(urlParams.get('vol')) || 30;
         const shuffle = urlParams.get('shuffle') !== '0';
         const twitchChannel = urlParams.get('twitch');
+        const maxQueue = parseInt(urlParams.get('maxq')) || 50; // Default max 50 songs
 
-        console.log("[Player] Init variables: ", {playlistId, volume, shuffle, twitchChannel});
+        console.log("[Player] Init variables: ", {playlistId, volume, shuffle, twitchChannel, maxQueue});
 
         // Queue System
         let twitchQueue = [];
@@ -465,6 +483,15 @@
                         // Check for !sr command
                         if (chatText.toLowerCase().startsWith('!sr ')) {
                             console.log(`[Twitch] SR Command detected: ${chatText}`);
+                            
+                            // Check Queue Limit Before Processing
+                            if (twitchQueue.length >= maxQueue) {
+                                console.log("[Twitch] Queue is full. Ignoring request.");
+                                showStatus(`Queue is full! (Max ${maxQueue})`, false, 'var(--error-color)');
+                                setTimeout(hideStatus, 3000);
+                                return;
+                            }
+
                             const query = chatText.substring(4).trim();
                             const videoId = extractYouTubeID(query);
                             
@@ -473,7 +500,7 @@
                                 addRequestToQueue(videoId, displayName);
                             } else {
                                 console.warn(`[Twitch] Failed to extract YouTube ID from: ${query}`);
-                                showStatus(`Invalid YouTube Link`, false, '#ef4444');
+                                showStatus(`Invalid YouTube Link`, false, 'var(--error-color)');
                                 setTimeout(hideStatus, 3000);
                             }
                         }
@@ -482,7 +509,7 @@
                 // Confirm channel join success
                 else if (message.includes(`JOIN #${twitchChannel.toLowerCase()}`)) {
                     console.log(`[Twitch] Successfully joined channel: ${twitchChannel}`);
-                    showStatus(`Twitch Connected: ${twitchChannel}`, false, '#9146FF');
+                    showStatus(`Twitch Connected: ${twitchChannel}`, false, 'var(--accent-color)');
                     setTimeout(hideStatus, 3000);
                 }
             };
@@ -536,12 +563,12 @@
                 });
                 
                 renderQueueUI();
-                showStatus(`Added: ${data.title}`, false, '#22c55e');
+                showStatus(`Added: ${data.title}`, false, 'var(--success-color)');
                 setTimeout(hideStatus, 3000);
 
             } catch (e) {
                 console.error("[Twitch] Metadata Fetch Error: ", e);
-                showStatus("Error: Video is unavailable or private", false, '#ef4444');
+                showStatus("Error: Video is unavailable or private", false, 'var(--error-color)');
                 setTimeout(hideStatus, 3000);
             }
         }
@@ -646,7 +673,7 @@
             if (player) player.previousVideo();
         }
 
-        function showStatus(msg, persistent = false, bgColor = 'rgba(220, 38, 38, 0.9)') {
+        function showStatus(msg, persistent = false, bgColor = 'var(--error-color)') {
             const el = document.getElementById('status');
             el.innerText = msg;
             el.style.background = bgColor;
