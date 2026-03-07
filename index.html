@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OBS Music Player</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <!-- TMI.js for Twitch Chat Integration (Switched to cdnjs to avoid adblockers) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tmi.js/1.8.5/tmi.min.js"></script>
     <style>
         body, html {
             margin: 0;
@@ -342,7 +340,7 @@
             });
 
             if (twitchChannel) {
-                initTwitch();
+                loadTwitchScript();
             } else {
                 console.log("[Twitch] No twitchChannel found in URL parameters.");
             }
@@ -418,22 +416,36 @@
         }
 
         // --- TWITCH INTEGRATION & ROBUST EXTRACTION ---
-        let twitchLoadAttempts = 0;
-        
-        function initTwitch() {
-            // Safeguard: Check if the tmi.js script has completely loaded
-            if (typeof tmi === 'undefined') {
-                twitchLoadAttempts++;
-                if (twitchLoadAttempts > 10) {
-                    console.error("[Twitch] Failed to load tmi.js after multiple attempts. Blocked by browser?");
-                    showStatus("Twitch script blocked by browser or adblocker.", true);
-                    return;
-                }
-                console.warn(`[Twitch] tmi.js is not loaded yet. Waiting 500ms to retry... (${twitchLoadAttempts}/10)`);
-                setTimeout(initTwitch, 500);
-                return;
-            }
 
+        function loadTwitchScript() {
+            console.log("[Twitch] Dynamically injecting tmi.js script...");
+            const script = document.createElement('script');
+            script.src = "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js";
+            
+            script.onload = () => {
+                console.log("[Twitch] tmi.js loaded successfully from jsdelivr.");
+                initTwitch();
+            };
+            
+            script.onerror = () => {
+                console.warn("[Twitch] Failed to load from jsdelivr. Attempting unpkg fallback...");
+                const fallback = document.createElement('script');
+                fallback.src = "https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js";
+                fallback.onload = () => {
+                    console.log("[Twitch] tmi.js loaded successfully from unpkg.");
+                    initTwitch();
+                };
+                fallback.onerror = () => {
+                    console.error("[Twitch] Both CDNs failed. Script blocked.");
+                    showStatus("Twitch integration blocked by browser.", true);
+                };
+                document.head.appendChild(fallback);
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function initTwitch() {
             console.log(`[Twitch] Attempting to connect to channel: ${twitchChannel}`);
             const client = new tmi.Client({ channels: [ twitchChannel ] });
 
