@@ -305,6 +305,8 @@
         const shuffle = urlParams.get('shuffle') !== '0';
         const twitchChannel = urlParams.get('twitch');
 
+        console.log("[Player] Init variables: ", {playlistId, volume, shuffle, twitchChannel});
+
         // Queue System (Now stores objects: {id, title, reqBy, thumb})
         let twitchQueue = [];
         let isPlayingQueue = false;
@@ -319,6 +321,7 @@
         var isPlaying = false;
 
         function onYouTubeIframeAPIReady() {
+            console.log("[Player] YouTube Iframe API Ready.");
             player = new YT.Player('player', {
                 height: '100%',
                 width: '100%',
@@ -340,10 +343,13 @@
 
             if (twitchChannel) {
                 initTwitch();
+            } else {
+                console.log("[Twitch] No twitchChannel found in URL parameters.");
             }
         }
 
         function onPlayerReady(event) {
+            console.log("[Player] Player Ready.");
             event.target.setVolume(volume);
             if (shuffle) {
                 event.target.setShuffle(true);
@@ -374,17 +380,20 @@
                 updateUI();
             }
             else if (event.data === YT.PlayerState.ENDED) {
+                console.log("[Player] Track Ended Naturally.");
                 handleTrackEnd();
             }
         }
 
         function handleTrackEnd() {
             if (twitchQueue.length > 0) {
+                console.log("[Player] Playing from Twitch Queue.");
                 isPlayingQueue = true;
                 let nextSong = twitchQueue.shift(); // Pull the first object out of queue
                 player.loadVideoById(nextSong.id);
                 renderQueueUI();
             } else if (isPlayingQueue) {
+                console.log("[Player] Queue Finished. Returning to default playlist.");
                 // Queue finished, return to default background list
                 isPlayingQueue = false;
                 player.loadPlaylist({
@@ -392,11 +401,13 @@
                     listType: 'playlist'
                 });
             } else {
+                console.log("[Player] Next standard playlist video.");
                 player.nextVideo();
             }
         }
 
         function onPlayerError(event) {
+            console.error("[Player] YouTube Player Error Code: ", event.data);
             let msg = "Error " + event.data;
             if (event.data === 150 || event.data === 101) msg = "Video blocked by owner. Skipping...";
             showStatus(msg);
@@ -408,22 +419,32 @@
 
         // --- TWITCH INTEGRATION & ROBUST EXTRACTION ---
         function initTwitch() {
+            console.log(`[Twitch] Attempting to connect to channel: ${twitchChannel}`);
             const client = new tmi.Client({ channels: [ twitchChannel ] });
 
             client.connect().then(() => {
+                console.log(`[Twitch] Successfully connected to: ${twitchChannel}`);
                 showStatus(`Twitch Connected: ${twitchChannel}`, false, '#9146FF');
                 setTimeout(hideStatus, 3000);
-            }).catch(console.error);
+            }).catch(err => {
+                console.error("[Twitch] Connection Error: ", err);
+            });
 
             client.on('message', (channel, tags, message, self) => {
                 if (self) return;
 
                 if (message.toLowerCase().startsWith('!sr ')) {
+                    console.log(`[Twitch] SR Command detected: ${message}`);
                     const query = message.substring(4).trim();
                     const videoId = extractYouTubeID(query);
                     
                     if (videoId) {
+                        console.log(`[Twitch] Extracted Video ID: ${videoId}`);
                         addRequestToQueue(videoId, tags['display-name']);
+                    } else {
+                        console.warn(`[Twitch] Failed to extract YouTube ID from: ${query}`);
+                        showStatus(`Invalid YouTube Link`, false, '#ef4444');
+                        setTimeout(hideStatus, 3000);
                     }
                 }
             });
@@ -439,7 +460,9 @@
                     if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
                     if (u.hostname.includes('youtu.be')) return u.pathname.substring(1);
                 }
-            } catch(e) {}
+            } catch(e) {
+                // Ignore URL parsing errors and fall through to regex
+            }
 
             // 2. Extremely robust fallback regex. 
             // It looks for exactly 11 valid characters. This perfectly solves "ID&list=..." issues.
@@ -450,18 +473,24 @@
         }
 
         async function addRequestToQueue(videoId, username) {
+            console.log(`[Twitch] Attempting to fetch metadata for video ID: ${videoId}`);
             try {
-                // Fetch the video title via YouTube's public oEmbed endpoint
-                const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-                if (!res.ok) throw new Error("Private or Invalid");
+                // Using noembed to bypass client-side CORS issues that happen with raw YouTube oembed
+                const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 
                 const data = await res.json();
+                console.log(`[Twitch] Successfully fetched metadata: `, data);
+                
+                if (data.error) {
+                     throw new Error(data.error);
+                }
                 
                 // Add to internal queue
                 twitchQueue.push({
                     id: videoId,
-                    title: data.title,
-                    author: data.author_name,
+                    title: data.title || "Unknown Title",
+                    author: data.author_name || "Unknown Channel",
                     reqBy: username,
                     thumb: `https://img.youtube.com/vi/${videoId}/default.jpg` // Small thumbnail
                 });
@@ -471,6 +500,7 @@
                 setTimeout(hideStatus, 3000);
 
             } catch (e) {
+                console.error("[Twitch] Metadata Fetch Error: ", e);
                 showStatus("Error: Video is unavailable or private", false, '#ef4444');
                 setTimeout(hideStatus, 3000);
             }
