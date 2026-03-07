@@ -305,7 +305,7 @@
 
         console.log("[Player] Init variables: ", {playlistId, volume, shuffle, twitchChannel});
 
-        // Queue System (Now stores objects: {id, title, reqBy, thumb})
+        // Queue System
         let twitchQueue = [];
         let isPlayingQueue = false;
 
@@ -340,7 +340,7 @@
             });
 
             if (twitchChannel) {
-                loadTwitchScript();
+                initTwitchNative();
             } else {
                 console.log("[Twitch] No twitchChannel found in URL parameters.");
             }
@@ -387,12 +387,11 @@
             if (twitchQueue.length > 0) {
                 console.log("[Player] Playing from Twitch Queue.");
                 isPlayingQueue = true;
-                let nextSong = twitchQueue.shift(); // Pull the first object out of queue
+                let nextSong = twitchQueue.shift(); 
                 player.loadVideoById(nextSong.id);
                 renderQueueUI();
             } else if (isPlayingQueue) {
                 console.log("[Player] Queue Finished. Returning to default playlist.");
-                // Queue finished, return to default background list
                 isPlayingQueue = false;
                 player.loadPlaylist({
                     list: playlistId,
@@ -415,94 +414,109 @@
             }, 3000);
         }
 
-        // --- TWITCH INTEGRATION & ROBUST EXTRACTION ---
+        // --- NATIVE TWITCH WEBSOCKET INTEGRATION (UNBLOCKABLE) ---
+        
+        let twitchWS = null;
 
-        function loadTwitchScript() {
-            console.log("[Twitch] Dynamically injecting tmi.js script...");
-            const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js";
+        function initTwitchNative() {
+            console.log(`[Twitch] Connecting natively via WebSocket to: ${twitchChannel}`);
             
-            script.onload = () => {
-                console.log("[Twitch] tmi.js loaded successfully from jsdelivr.");
-                initTwitch();
+            // Connect directly to Twitch IRC WebSocket
+            twitchWS = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+
+            twitchWS.onopen = () => {
+                console.log("[Twitch] WebSocket connected. Authenticating as guest...");
+                // Request tags (so we get usernames) and login anonymously
+                twitchWS.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                twitchWS.send('PASS SCHMOOPIIE');
+                
+                // Generate a random JustinFan username (standard anonymous Twitch auth)
+                const randomNum = Math.floor(Math.random() * 100000);
+                twitchWS.send(`NICK justinfan${randomNum}`);
+                twitchWS.send(`JOIN #${twitchChannel.toLowerCase()}`);
             };
-            
-            script.onerror = () => {
-                console.warn("[Twitch] Failed to load from jsdelivr. Attempting unpkg fallback...");
-                const fallback = document.createElement('script');
-                fallback.src = "https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js";
-                fallback.onload = () => {
-                    console.log("[Twitch] tmi.js loaded successfully from unpkg.");
-                    initTwitch();
-                };
-                fallback.onerror = () => {
-                    console.error("[Twitch] Both CDNs failed. Script blocked.");
-                    showStatus("Twitch integration blocked by browser.", true);
-                };
-                document.head.appendChild(fallback);
-            };
-            
-            document.head.appendChild(script);
-        }
 
-        function initTwitch() {
-            console.log(`[Twitch] Attempting to connect to channel: ${twitchChannel}`);
-            const client = new tmi.Client({ channels: [ twitchChannel ] });
-
-            client.connect().then(() => {
-                console.log(`[Twitch] Successfully connected to: ${twitchChannel}`);
-                showStatus(`Twitch Connected: ${twitchChannel}`, false, '#9146FF');
-                setTimeout(hideStatus, 3000);
-            }).catch(err => {
-                console.error("[Twitch] Connection Error: ", err);
-            });
-
-            client.on('message', (channel, tags, message, self) => {
-                if (self) return;
-
-                if (message.toLowerCase().startsWith('!sr ')) {
-                    console.log(`[Twitch] SR Command detected: ${message}`);
-                    const query = message.substring(4).trim();
-                    const videoId = extractYouTubeID(query);
-                    
-                    if (videoId) {
-                        console.log(`[Twitch] Extracted Video ID: ${videoId}`);
-                        addRequestToQueue(videoId, tags['display-name']);
-                    } else {
-                        console.warn(`[Twitch] Failed to extract YouTube ID from: ${query}`);
-                        showStatus(`Invalid YouTube Link`, false, '#ef4444');
-                        setTimeout(hideStatus, 3000);
-                    }
+            twitchWS.onmessage = (event) => {
+                const message = event.data;
+                
+                // Twitch needs us to respond to PINGs to keep the connection alive
+                if (message.startsWith('PING')) {
+                    twitchWS.send('PONG :tmi.twitch.tv');
+                    return;
                 }
-            });
+
+                // Parse chat messages
+                if (message.includes('PRIVMSG')) {
+                    // Extract Username (from tags)
+                    let displayName = "Unknown";
+                    const tagsMatch = message.split(' :')[0];
+                    if (tagsMatch) {
+                        const nameMatch = tagsMatch.match(/display-name=([^;\s]+)/);
+                        if (nameMatch) displayName = nameMatch[1];
+                    }
+
+                    // Extract Message content
+                    const chatChannel = `#${twitchChannel.toLowerCase()}`;
+                    const msgParts = message.split(`PRIVMSG ${chatChannel} :`);
+                    
+                    if (msgParts.length > 1) {
+                        const chatText = msgParts[1].trim();
+                        
+                        // Check for !sr command
+                        if (chatText.toLowerCase().startsWith('!sr ')) {
+                            console.log(`[Twitch] SR Command detected: ${chatText}`);
+                            const query = chatText.substring(4).trim();
+                            const videoId = extractYouTubeID(query);
+                            
+                            if (videoId) {
+                                console.log(`[Twitch] Extracted Video ID: ${videoId}`);
+                                addRequestToQueue(videoId, displayName);
+                            } else {
+                                console.warn(`[Twitch] Failed to extract YouTube ID from: ${query}`);
+                                showStatus(`Invalid YouTube Link`, false, '#ef4444');
+                                setTimeout(hideStatus, 3000);
+                            }
+                        }
+                    }
+                } 
+                // Confirm channel join success
+                else if (message.includes(`JOIN #${twitchChannel.toLowerCase()}`)) {
+                    console.log(`[Twitch] Successfully joined channel: ${twitchChannel}`);
+                    showStatus(`Twitch Connected: ${twitchChannel}`, false, '#9146FF');
+                    setTimeout(hideStatus, 3000);
+                }
+            };
+
+            twitchWS.onclose = () => {
+                console.warn("[Twitch] WebSocket disconnected. Reconnecting in 5 seconds...");
+                setTimeout(initTwitchNative, 5000);
+            };
+
+            twitchWS.onerror = (err) => {
+                console.error("[Twitch] WebSocket error:", err);
+            };
         }
 
         function extractYouTubeID(url) {
             url = url.trim();
             
-            // 1. Try to parse as standard URL (Handles youtu.be, watch?v=, etc)
             try {
                 if (url.startsWith('http')) {
                     let u = new URL(url);
                     if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
                     if (u.hostname.includes('youtu.be')) return u.pathname.substring(1);
                 }
-            } catch(e) {
-                // Ignore URL parsing errors and fall through to regex
-            }
+            } catch(e) {}
 
-            // 2. Extremely robust fallback regex. 
-            // It looks for exactly 11 valid characters. This perfectly solves "ID&list=..." issues.
             const rawMatch = url.match(/([a-zA-Z0-9_-]{11})/);
             if (rawMatch) return rawMatch[1];
 
-            return null; // Failed to find anything
+            return null; 
         }
 
         async function addRequestToQueue(videoId, username) {
             console.log(`[Twitch] Attempting to fetch metadata for video ID: ${videoId}`);
             try {
-                // Using noembed to bypass client-side CORS issues that happen with raw YouTube oembed
                 const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
                 if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 
@@ -513,13 +527,12 @@
                      throw new Error(data.error);
                 }
                 
-                // Add to internal queue
                 twitchQueue.push({
                     id: videoId,
                     title: data.title || "Unknown Title",
                     author: data.author_name || "Unknown Channel",
                     reqBy: username,
-                    thumb: `https://img.youtube.com/vi/${videoId}/default.jpg` // Small thumbnail
+                    thumb: `https://img.youtube.com/vi/${videoId}/default.jpg`
                 });
                 
                 renderQueueUI();
@@ -569,10 +582,9 @@
             const list = document.getElementById('queue-list');
             const card = document.getElementById('player-card');
             
-            list.innerHTML = ''; // Clear current
+            list.innerHTML = ''; 
 
             if (twitchQueue.length > 0) {
-                // Show up to 3 items in the visual queue
                 const displayQueue = twitchQueue.slice(0, 3);
                 
                 displayQueue.forEach(song => {
@@ -599,10 +611,10 @@
                 }
 
                 container.style.display = 'flex';
-                card.style.borderRadius = '16px 16px 0 0'; // Flatten bottom corners of card
+                card.style.borderRadius = '16px 16px 0 0'; 
             } else {
                 container.style.display = 'none';
-                card.style.borderRadius = '16px'; // Restore rounded corners
+                card.style.borderRadius = '16px'; 
             }
         }
 
@@ -627,7 +639,7 @@
 
         function nextTrack() {
             if (!player) return;
-            handleTrackEnd(); // Triggers the exact same priority logic as a natural song end
+            handleTrackEnd(); 
         }
 
         function prevTrack() {
