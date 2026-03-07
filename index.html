@@ -14,11 +14,15 @@
             overflow: hidden;
             width: 100%;
             height: 100%;
-            background-color: #121212;
+            background-color: transparent; 
             font-family: 'Roboto', sans-serif;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 10px;
+            box-sizing: border-box;
         }
 
-        /* The hidden YouTube Player */
         #player {
             position: absolute;
             top: 0; left: 0;
@@ -27,50 +31,42 @@
             pointer-events: none;
         }
 
-        /* 1. Background Layer (Blurred Art) */
-        #bg-layer {
-            position: absolute;
-            top: -10%; left: -10%;
-            width: 120%; height: 120%;
-            background-size: cover;
-            background-position: center;
-            filter: blur(20px) brightness(0.4);
-            z-index: 1;
-            transition: background-image 0.8s ease;
-        }
-
-        /* 2. Main Content Container */
-        .widget-container {
-            position: relative;
-            z-index: 10;
+        /* Widget Wrapper */
+        .widget-wrapper {
             width: 100%;
-            height: 100%;
+            max-width: 550px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end; /* Align to bottom */
-            padding: 20px;
-            box-sizing: border-box;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            position: relative;
         }
 
-        /* 3. Album Art (Small Square) */
-        .art-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            background-color: #333;
-            /* Hidden on very small heights, visible otherwise */
-            display: none; 
+        /* Main Compact Widget Card */
+        .player-card {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            background: rgba(18, 18, 18, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            transition: border-radius 0.3s ease;
         }
-        
-        /* Only show small art if the widget is tall enough */
-        @media (min-height: 200px) {
-            .art-container { display: block; }
+
+        /* Album Art Square */
+        .art-container {
+            width: 76px;
+            height: 76px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: relative;
         }
 
         #small-art {
@@ -78,16 +74,19 @@
             height: 100%;
             background-size: cover;
             background-position: center;
+            transition: background-image 0.5s ease;
         }
 
-        /* 4. Text Info Area */
+        /* Text Info Area */
         .info-area {
-            margin-bottom: 20px;
-            width: 100%;
-            overflow: hidden;
+            flex-grow: 1;
+            min-width: 0;
+            margin: 0 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
-        /* Scrolling Marquee for Title */
         .track-title-container {
             width: 100%;
             white-space: nowrap;
@@ -96,129 +95,203 @@
         }
 
         .track-title {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
-            color: white;
+            color: #ffffff;
             display: inline-block;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
 
         .channel-name {
-            font-size: 14px;
-            color: #b3b3b3;
-            margin-top: 4px;
+            font-size: 13px;
+            color: #a0a0a0;
+            margin-top: 5px;
             font-weight: 400;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
 
-        /* 5. Controls */
+        /* Badge inside info area */
+        .source-badge {
+            display: inline-block;
+            background: #9146FF;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 6px;
+            vertical-align: middle;
+            display: none; /* Only show when playing a requested song */
+        }
+
+        /* Controls */
         .controls {
+            flex-shrink: 0;
             display: flex;
             align-items: center;
-            gap: 15px;
-            opacity: 0.7;
-            transition: opacity 0.3s;
-        }
-
-        .controls:hover {
-            opacity: 1;
+            gap: 8px;
+            margin-right: 5px;
         }
 
         button {
-            background: none;
-            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
             cursor: pointer;
-            padding: 5px;
+            padding: 8px;
             color: white;
-            transition: transform 0.1s;
-            filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.5));
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        button:active {
-            transform: scale(0.95);
+        button:hover { background: rgba(255, 255, 255, 0.15); transform: scale(1.05); }
+        button:active { transform: scale(0.95); }
+        button svg { width: 20px; height: 20px; fill: white; }
+        #btn-play { padding: 12px; background: rgba(255, 255, 255, 0.1); }
+        #btn-play svg { width: 24px; height: 24px; }
+
+        /* --- VISUAL QUEUE --- */
+        .queue-container {
+            width: 95%; /* Slightly narrower than main card */
+            margin: 0 auto;
+            background: rgba(18, 18, 18, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 15px 12px 12px 12px;
+            box-sizing: border-box;
+            display: none; /* hidden by default */
+            flex-direction: column;
+            gap: 8px;
+            z-index: 5;
+            transform: translateY(-10px); /* Pull it up under the card slightly */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
         }
 
-        button svg {
-            width: 28px;
-            height: 28px;
-            fill: white;
+        .queue-header {
+            font-size: 11px;
+            color: #a0a0a0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 2px;
+            margin-left: 4px;
         }
 
-        #btn-play svg {
-            width: 36px;
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.05);
+            padding: 6px 10px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .queue-thumb {
+            width: 48px;
             height: 36px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 4px;
         }
 
-        /* Toasts & Counters */
+        .queue-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            white-space: nowrap;
+            flex-grow: 1;
+        }
+
+        .queue-title {
+            font-size: 13px;
+            color: white;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            font-weight: 700;
+        }
+
+        .queue-user {
+            font-size: 11px;
+            color: #9146FF;
+            margin-top: 2px;
+        }
+
+        /* Status Toasts */
         #status {
             position: absolute;
-            top: 20px; right: 20px;
-            background: rgba(220, 38, 38, 0.9);
+            top: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(220, 38, 38, 0.95);
             color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 100;
-            display: none;
-        }
-
-        #queue-counter {
-            position: absolute;
-            top: 60px; right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
+            padding: 6px 16px;
+            border-radius: 20px;
             font-size: 12px;
             font-weight: bold;
             z-index: 100;
             display: none;
-            border: 1px solid #333;
+            white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
-        /* Marquee Animation Keyframes */
         @keyframes scroll-text {
             0% { transform: translateX(0%); }
-            20% { transform: translateX(0%); } /* Pause at start */
+            20% { transform: translateX(0%); }
             100% { transform: translateX(-100%); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <!-- Blurred Background -->
-    <div id="bg-layer"></div>
-
-    <!-- UI Elements -->
     <div id="status">Initializing...</div>
-    <div id="queue-counter">Queue: 0</div>
 
-    <div class="widget-container">
-        
-        <div class="art-container">
-            <div id="small-art"></div>
-        </div>
-
-        <div class="info-area">
-            <div class="track-title-container" id="title-container">
-                <span id="track-title" class="track-title">Loading...</span>
+    <div class="widget-wrapper">
+        <div class="player-card" id="player-card">
+            
+            <div class="art-container">
+                <div id="small-art"></div>
             </div>
-            <div id="channel-name" class="channel-name"></div>
+
+            <div class="info-area">
+                <div class="track-title-container" id="title-container">
+                    <span id="track-title" class="track-title">Loading...</span>
+                </div>
+                <div class="channel-name">
+                    <span class="source-badge" id="source-badge">REQUEST</span>
+                    <span id="channel-name">Connecting...</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="btn-prev" onclick="prevTrack()" title="Previous">
+                    <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                
+                <button id="btn-play" onclick="togglePlay()" title="Play/Pause">
+                    <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                
+                <button id="btn-next" onclick="nextTrack()" title="Skip / Next">
+                    <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
         </div>
 
-        <div class="controls">
-            <button id="btn-prev" onclick="prevTrack()" title="Previous">
-                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-            </button>
-            
-            <button id="btn-play" onclick="togglePlay()" title="Play/Pause">
-                <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                <svg id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-            
-            <button id="btn-next" onclick="nextTrack()" title="Next">
-                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
+        <!-- Visual Queue Container -->
+        <div class="queue-container" id="queue-container">
+            <div class="queue-header">Up Next</div>
+            <div id="queue-list">
+                <!-- Items inject here -->
+            </div>
         </div>
     </div>
 
@@ -226,18 +299,17 @@
     <div id="player"></div>
 
     <script>
-        // --- CONFIGURATION ---
         const urlParams = new URLSearchParams(window.location.search);
         const playlistId = urlParams.get('list') || 'PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph'; 
         const volume = parseInt(urlParams.get('vol')) || 30;
         const shuffle = urlParams.get('shuffle') !== '0';
-        const twitchChannel = urlParams.get('twitch'); // e.g., ?twitch=ninja
+        const twitchChannel = urlParams.get('twitch');
 
-        // --- QUEUE SYSTEM ---
+        // Queue System (Now stores objects: {id, title, reqBy, thumb})
         let twitchQueue = [];
         let isPlayingQueue = false;
 
-        // --- YOUTUBE API ---
+        // YouTube API Init
         var tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -247,11 +319,6 @@
         var isPlaying = false;
 
         function onYouTubeIframeAPIReady() {
-            if (window.location.protocol === 'file:') {
-                showStatus("Warning: Running locally. Use GitHub Pages for best results.");
-                setTimeout(hideStatus, 5000);
-            }
-            
             player = new YT.Player('player', {
                 height: '100%',
                 width: '100%',
@@ -271,7 +338,6 @@
                 }
             });
 
-            // Init Twitch if channel provided
             if (twitchChannel) {
                 initTwitch();
             }
@@ -279,7 +345,6 @@
 
         function onPlayerReady(event) {
             event.target.setVolume(volume);
-
             if (shuffle) {
                 event.target.setShuffle(true);
                 event.target.playVideoAt(0);
@@ -287,7 +352,6 @@
                 event.target.playVideo();
             }
 
-            // Autoplay Check
             setTimeout(() => {
                 if (!isPlaying) {
                     showStatus("Autoplay blocked. Click to start.", true);
@@ -310,51 +374,44 @@
                 updateUI();
             }
             else if (event.data === YT.PlayerState.ENDED) {
-                // --- QUEUE LOGIC TRIGGER ---
                 handleTrackEnd();
             }
         }
 
         function handleTrackEnd() {
             if (twitchQueue.length > 0) {
-                // Play next from twitch queue
                 isPlayingQueue = true;
-                let nextVid = twitchQueue.shift();
-                player.loadVideoById(nextVid);
-                updateQueueUI();
+                let nextSong = twitchQueue.shift(); // Pull the first object out of queue
+                player.loadVideoById(nextSong.id);
+                renderQueueUI();
             } else if (isPlayingQueue) {
-                // Queue is empty, revert back to default playlist
+                // Queue finished, return to default background list
                 isPlayingQueue = false;
                 player.loadPlaylist({
                     list: playlistId,
                     listType: 'playlist'
                 });
             } else {
-                // Normal playlist loop behavior
                 player.nextVideo();
             }
         }
 
         function onPlayerError(event) {
             let msg = "Error " + event.data;
-            if (event.data === 150 || event.data === 101) msg = "Video blocked by owner.";
+            if (event.data === 150 || event.data === 101) msg = "Video blocked by owner. Skipping...";
             showStatus(msg);
-            
-            // If we hit an error, skip to the next track automatically after 3s
             setTimeout(() => {
                 hideStatus();
                 handleTrackEnd(); 
             }, 3000);
         }
 
-        // --- TWITCH INTEGRATION ---
+        // --- TWITCH INTEGRATION & ROBUST EXTRACTION ---
         function initTwitch() {
-            const client = new tmi.Client({
-                channels: [ twitchChannel ]
-            });
+            const client = new tmi.Client({ channels: [ twitchChannel ] });
 
             client.connect().then(() => {
-                showStatus(`Twitch Connected: ${twitchChannel}`);
+                showStatus(`Twitch Connected: ${twitchChannel}`, false, '#9146FF');
                 setTimeout(hideStatus, 3000);
             }).catch(console.error);
 
@@ -366,12 +423,7 @@
                     const videoId = extractYouTubeID(query);
                     
                     if (videoId) {
-                        twitchQueue.push(videoId);
-                        updateQueueUI();
-                        
-                        // Briefly show a confirmation toast
-                        showStatus(`Added to Queue!`, false, '#22c55e');
-                        setTimeout(hideStatus, 2000);
+                        addRequestToQueue(videoId, tags['display-name']);
                     }
                 }
             });
@@ -379,16 +431,52 @@
 
         function extractYouTubeID(url) {
             url = url.trim();
-            // If user just pastes the 11 character ID directly
-            if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
             
-            // Regex for standard YouTube URLs
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : null;
+            // 1. Try to parse as standard URL (Handles youtu.be, watch?v=, etc)
+            try {
+                if (url.startsWith('http')) {
+                    let u = new URL(url);
+                    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v');
+                    if (u.hostname.includes('youtu.be')) return u.pathname.substring(1);
+                }
+            } catch(e) {}
+
+            // 2. Extremely robust fallback regex. 
+            // It looks for exactly 11 valid characters. This perfectly solves "ID&list=..." issues.
+            const rawMatch = url.match(/([a-zA-Z0-9_-]{11})/);
+            if (rawMatch) return rawMatch[1];
+
+            return null; // Failed to find anything
         }
 
-        // --- UI LOGIC ---
+        async function addRequestToQueue(videoId, username) {
+            try {
+                // Fetch the video title via YouTube's public oEmbed endpoint
+                const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+                if (!res.ok) throw new Error("Private or Invalid");
+                
+                const data = await res.json();
+                
+                // Add to internal queue
+                twitchQueue.push({
+                    id: videoId,
+                    title: data.title,
+                    author: data.author_name,
+                    reqBy: username,
+                    thumb: `https://img.youtube.com/vi/${videoId}/default.jpg` // Small thumbnail
+                });
+                
+                renderQueueUI();
+                showStatus(`Added: ${data.title}`, false, '#22c55e');
+                setTimeout(hideStatus, 3000);
+
+            } catch (e) {
+                showStatus("Error: Video is unavailable or private", false, '#ef4444');
+                setTimeout(hideStatus, 3000);
+            }
+        }
+
+        // --- UI & RENDERING ---
         function updateUI() {
             const iconPause = document.getElementById('icon-pause');
             const iconPlay = document.getElementById('icon-play');
@@ -406,26 +494,58 @@
                 if (data) {
                     const titleEl = document.getElementById('track-title');
                     titleEl.innerText = data.title;
-                    document.getElementById('channel-name').innerText = data.author || (isPlayingQueue ? "Twitch Song Request" : "");
+                    
+                    document.getElementById('channel-name').innerText = data.author || (isPlayingQueue ? "" : "YouTube Playlist");
+                    document.getElementById('source-badge').style.display = isPlayingQueue ? 'inline-block' : 'none';
 
                     checkMarquee(titleEl);
 
                     const videoId = data.video_id;
                     const highResUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-                    
-                    document.getElementById('bg-layer').style.backgroundImage = `url('${highResUrl}')`;
                     document.getElementById('small-art').style.backgroundImage = `url('${highResUrl}')`;
                 }
             } catch(e) { console.error(e); }
         }
 
-        function updateQueueUI() {
-            const counter = document.getElementById('queue-counter');
+        function renderQueueUI() {
+            const container = document.getElementById('queue-container');
+            const list = document.getElementById('queue-list');
+            const card = document.getElementById('player-card');
+            
+            list.innerHTML = ''; // Clear current
+
             if (twitchQueue.length > 0) {
-                counter.innerText = `Queue: ${twitchQueue.length}`;
-                counter.style.display = 'block';
+                // Show up to 3 items in the visual queue
+                const displayQueue = twitchQueue.slice(0, 3);
+                
+                displayQueue.forEach(song => {
+                    const item = document.createElement('div');
+                    item.className = 'queue-item';
+                    item.innerHTML = `
+                        <div class="queue-thumb" style="background-image: url('${song.thumb}')"></div>
+                        <div class="queue-info">
+                            <span class="queue-title">${song.title}</span>
+                            <span class="queue-user">Req by @${song.reqBy}</span>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+
+                if (twitchQueue.length > 3) {
+                    const extra = document.createElement('div');
+                    extra.style.fontSize = '11px';
+                    extra.style.color = '#a0a0a0';
+                    extra.style.textAlign = 'center';
+                    extra.style.marginTop = '4px';
+                    extra.innerText = `+ ${twitchQueue.length - 3} more in queue...`;
+                    list.appendChild(extra);
+                }
+
+                container.style.display = 'flex';
+                card.style.borderRadius = '16px 16px 0 0'; // Flatten bottom corners of card
             } else {
-                counter.style.display = 'none';
+                container.style.display = 'none';
+                card.style.borderRadius = '16px'; // Restore rounded corners
             }
         }
 
@@ -436,8 +556,8 @@
             const containerWidth = document.getElementById('title-container').offsetWidth;
             const textWidth = element.scrollWidth;
 
-            if (textWidth > containerWidth) {
-                const duration = textWidth / 50; 
+            if (textWidth > containerWidth + 5) {
+                const duration = textWidth / 40; 
                 element.style.animation = `scroll-text ${duration}s linear infinite alternate`;
             }
         }
@@ -450,13 +570,11 @@
 
         function nextTrack() {
             if (!player) return;
-            handleTrackEnd(); // Use the same logic as if the track ended naturally
+            handleTrackEnd(); // Triggers the exact same priority logic as a natural song end
         }
 
         function prevTrack() {
             if (player) player.previousVideo();
-            // Note: going backward while deep in a dynamic Twitch Queue is tricky in the iframe API, 
-            // so this mostly safely applies to normal playlist behavior.
         }
 
         function showStatus(msg, persistent = false, bgColor = 'rgba(220, 38, 38, 0.9)') {
@@ -470,9 +588,7 @@
             document.getElementById('status').style.display = 'none';
         }
 
-        window.addEventListener('resize', () => {
-            if(player) updateUI();
-        });
+        window.addEventListener('resize', () => { if(player) updateUI(); });
     </script>
 </body>
 </html>
